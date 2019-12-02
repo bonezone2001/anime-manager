@@ -4,6 +4,9 @@ A tool to let me store the anime i have watched and plan to watch with the addit
 # Motivation
 The application was pretty much made as a way for me to quickly learn how to use electron and vuejs. Thinking back, I should have done some more research since I found that CEF and Ultralig.ht exist and are in languages that I am much better at (C++ or C#, Mainly C++). But here we are, a vuejs/electron cross world thing.
 
+# Comments
+The application was origianlly just meant to be something-something for myself, you know. However, a friend of mine wanted to start learning vuejs along side me. So I started commenting the code in order to allow him to understand what was going on. Some of the files were not commented since I got lazy and figured he was starting to get the hang of it without my help so I am sorry if the comments are directed towards somebody personally or if some of the files are not commented to the best of my ability. I shall eventually get around to fixing it but it shall remain that way for now.
+
 # Get started
 ## Run the code
 #### Yarn
