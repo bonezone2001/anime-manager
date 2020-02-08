@@ -57,16 +57,31 @@ export default {
     function toggleMaxRestoreButtons() { (win.isMaximized() ? document.body.classList.add('maximized') : document.body.classList.remove('maximized')); }
     win.on('maximize', toggleMaxRestoreButtons);
     win.on('unmaximize', toggleMaxRestoreButtons);
+    
+    var options = {
+      uri: 'https://twist.moe/api/anime/',
+      headers: {
+        'User-Agent': 'Ubuntu Chromium/34.0.1847.116 Chrome/34.0.1847.116 Safari/537.36',
+        'Cache-Control': 'private',
+        'Accept': 'application/xml,application/xhtml+xml,text/html;q=0.9, text/plain;q=0.8,image/png,*/*;q=0.5',
+        'x-access-token': '1rj2vRtegS8Y60B3w3qNZm5T2Q0TN2NR'
+      },
+      cloudflareTimeout: 5000,
+      cloudflareMaxTimeout: 30000,
+      followAllRedirects: true,
+      challengesToSolve: 3,
+      decodeEmails: false,
+      gzip: true
+    };
 
     // Scrape twist.moe since they keep all the anime in the HTML for fast searching
-    cloudscraper('https://twist.moe').then((htmlStr) =>{
-      const html = parse(htmlStr); // Scrape html
-      const animeItems = html.querySelectorAll('nav.series li'); // Find anime containers
-      let animes = []; // Store all the anime we find
-      animeItems.forEach(anime => { // loop through all the anime so we can extra specific data
-        animes.push({ // Add anime to list with...
-          name: anime.querySelector('span').innerHTML.trim(), // Extracted name
-          link: "https://twist.moe" + anime.querySelector('a').attributes.href // Extracted anime link
+    cloudscraper(options).then((htmlStr) =>{
+      const json = JSON.parse(htmlStr);     // Scrape html (JSON)
+      let animes = [];                      // Store all the anime we find
+      json.forEach(anime => {         // loop through all the anime so we can extra specific data
+        animes.push({                       // Add anime to list with...
+          name: anime.title, // Extracted name
+          link: "https://twist.moe/a/" + anime.slug.slug // Extracted anime link
         });
       });
       // This is the method i use to update state in watch/watched pages from other components or even within itself
