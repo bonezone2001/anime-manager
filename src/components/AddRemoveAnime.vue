@@ -20,7 +20,7 @@
         <b-field>
           <b-select expanded multiple v-model="selectedOptions">
             <option
-              v-for="(anime, idx) in $store.getters.loadedAnime"
+              v-for="(anime, idx) in this.curAnime"
               :key="idx"
               :value="idx"
             >{{ anime.name }}</option>
@@ -62,6 +62,7 @@ export default {
       anime: "",
       comment: "",
       selectedOptions: [],
+      curAnime: [],
       watchPath: path.join(remote.app.getPath("userData"), "/Core/") + (this.$props.isWatched ? "watched.json" : "watch.json"),
       oppositePath: path.join(remote.app.getPath("userData"), "/Core/") + (!this.$props.isWatched ? "watched.json" : "watch.json")
     };
@@ -140,9 +141,10 @@ export default {
             const images = html2.querySelectorAll("img");
             // Get all /anime/ images
             images.forEach(img => {
-              if (img.attributes.src != null)
-                if (img.attributes.src.includes("/anime/"))
-                  animeImages.push(img);
+              if (img.attributes.src == null)
+                img.attributes.src = img.attributes["data-src"];
+              if (img.attributes.src.includes("/anime/"))
+                animeImages.push(img);
             });
             if (animeImages.length == 0) {
               alert("Cannot find image, unexpected error");
@@ -202,7 +204,6 @@ export default {
       if (!fs.existsSync(imgPath + sanitize(this.anime) + ".jpg")) {
         // Add to list of downloads
         store.commit('addDownload', {name: this.anime, comment: this.comment, watchPath: this.watchPath });
-        console.log(store.getters.toDownload);
         // Start downloader if not already started, will kill itself
         if(store.getters.downloadInterval == null)
           store.commit('changeInterval', setInterval(this.animeDownloadInterval.bind(null,imgPath), 2000));
@@ -216,6 +217,7 @@ export default {
         newList.splice(idx, 1);
       });
       fs.writeFileSync(this.watchPath, JSON.stringify(newList, null, 2));
+      this.curAnime = newList;
       this.$store.commit("changeAnime", true);
     },
     switchAnime() {
@@ -228,11 +230,13 @@ export default {
       });
       fs.writeFileSync(this.watchPath, JSON.stringify(newList, null, 2));
       fs.writeFileSync(this.oppositePath, JSON.stringify(newListOther, null, 2));
+      this.curAnime = newList;
       this.$store.commit("changeAnime", true);
     }
   },
   mounted() {
     this.$refs.anime.focus();
+    this.curAnime = this.loadList();
   }
 };
 </script>
