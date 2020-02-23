@@ -87,6 +87,9 @@ export default {
       // This is the method i use to update state in watch/watched pages from other components or even within itself
       this.$store.commit('changeTwistMoe', animes);
     }).catch((err) =>{ console.log(err) });
+  },
+  mounted() {
+    this.$router.push({ path: '/' });   // Start at / (for when we compile)
   }
 };
 </script>
@@ -141,10 +144,6 @@ body {
   user-select: none;
 }
 
-#window-controls {
-  background: #151515;
-}
-
 /* Title for the window div */
 .window-title {
   grid-column: 1;
@@ -169,6 +168,7 @@ body {
   grid-template-columns: repeat(3, 46px);
   display: grid;
   position: absolute;
+  background: #151515;
   height: 100%;
   top: 0;
   right: 0;

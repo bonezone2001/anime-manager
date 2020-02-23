@@ -1,6 +1,10 @@
 <template>
   <div class="main" :class="{'collapsed' : this.$store.getters.isCollapsed}" id="home">
     <span hidden>{{animeUpdate}}</span>
+    <div id="watchbuttons">
+      <div @click="randomAnime($event)" @click.right="randomAnime($event)">⇋</div>
+      <input v-model="search" placeholder="Search">
+    </div>
     <transition-group appear name="fade">
       <img
         class="anime-img"
@@ -9,7 +13,7 @@
         :key="idx"
         :index="idx"
         :src="obj.path"
-        @click.right="handleAnime($event, true)"
+        @click.right="handleAnime($event)"
         @click="handleAnime($event)"
         @mouseover="handleAnimeHover($event)"
       />
@@ -22,7 +26,7 @@ import path from "path";                    // Import path so we can append dire
 import { remote } from "electron";          // Import remote so we can 'remote'ly access mainwindow
 const fs = require("fs");                   // Import fs so we can use the file system
 const opn = require("opn");                 // Import opn so we can open links in the default browser across different os
-const clipboardy = require("clipboardy");   // Import clipboardy so we can manipulate the clipboard across different os
+import copy from 'copy-to-clipboard';       // Import library to add overwrite clipbard
 import Fuse from "fuse.js";                 // Import fuse.js so we can 'fuzzy' search through arrays (approximate search)
 import { mkdirSync } from "fs";             // Import mkdirSync for making directories syncronously
 import sanitize from 'sanitize-filename';   // Used for sanatising strings so we can use them in path names
@@ -44,7 +48,8 @@ export default {
     return {
       appPath: path.join(remote.app.getPath("userData"), "/Core/"),         // Main path
       imgPath: path.join(remote.app.getPath("userData"), "/Core/Images/"),  // Images path
-      anime: [] // All anime currently being displayed
+      anime: [], // All anime currently being displayed
+      search: ""
     };
   },
   props: {
@@ -88,8 +93,20 @@ export default {
         this.$store.commit('changeLoaded', this.anime)
       });
     },
-    // Handle the user clicking the anime (copy arg is true when right clicked, used to copy anime name instead of opening it)
-    handleAnime(event, copy = false) {
+    // Select random anime from current list (Right click, from twist.moe)
+    randomAnime(event) {
+      if(event.button == 0) { // From list (super lazy way)
+        let animeImgs = document.querySelectorAll(".anime-img");
+        var obj = animeImgs[Math.floor(Math.random() * animeImgs.length)];
+        obj.click();
+        //obj.scrollIntoView(true);
+      } else { // From twist.moe
+        let twistMoe = this.$store.getters.twistMoe;
+        opn(twistMoe[Math.floor(Math.random() * twistMoe.length)].link);
+      }
+    },
+    // Handle the user clicking the anime (Right click, used to copy anime name instead of opening it)
+    handleAnime(event) {
       // Get index relative to the this.anime array that we stored within the html as an attribute
       const index = event.currentTarget.getAttribute("index");
       if (index == undefined) return;
@@ -100,14 +117,14 @@ export default {
       let filename = fullPath.replace(/^.*[\\\/]/, "");
       let anime = filename.substring(0, filename.length - 4);
 
-      // Open anime if not copy == true, copy if not copy == false
-      if (!copy) {
-        // Search through the anime we scraped from twistMoe
+      // Open anime if left click, copy if right click (not left click)
+      if (event.button == 0) {
+        // Search through the anime we gathered from twist.moe
         var fuse = new Fuse(this.$store.getters.twistMoe, options);
         var result = fuse.search(anime);
         // Open anime
         opn(result[0].link);
-      } else clipboardy.write(anime); // Overwrite clipboard
+      } else copy(anime); // Overwrite clipboard
     },
     // Handle anime hover (the way in which the extra data is displayed is going to be changed)
     // So this is just temporary
@@ -158,12 +175,54 @@ export default {
       // Load files into array from path
       this.checkFiles();
       this.loadAnime();
+    },
+    search(to) {
+      // Reset list when empty
+      if(to.length < 1)
+        this.loadAnime();
+      // Attempt search
+      const refAnime = this.anime;
+      var fuse = new Fuse(refAnime, options);
+      var result = fuse.search(to);
+      this.anime = result;
     }
   }
 };
 </script>
 
 <style scoped>
+#watchbuttons {
+  -webkit-app-region: no-drag;
+  height: 32px;
+  width: auto;
+  position: absolute;   /* add option to set to fixed (in settings) */
+  background: #151515;
+  margin-top: -32px;
+}
+
+#watchbuttons div {
+  float: left;
+  width: 40px;
+  height: 100%;
+  text-align: center;
+  line-height: 32px;
+  align-items: center;
+}
+
+/* Setup all the buttons hover/active colouring */
+#watchbuttons div:hover { background: rgba(255,255,255,0.1); }
+#watchbuttons div:active { background: rgba(255,255,255,0.2); }
+
+#watchbuttons input {
+  background: transparent;
+  color: white;
+  padding: 0 5px;
+  width: 150px;
+  height:32px;
+}
+
+#watchbuttons input:hover { background: rgba(255,255,255,0.1); }
+
 .anime-img {
   transition: 0.5s;
   float: left;
@@ -173,8 +232,8 @@ export default {
 }
 
 .extend {
-  width: 243.5px;
-  height: 343.5px;
+  width: 243.6px;
+  height: 360px;
 }
 
 .fade-enter-active,
