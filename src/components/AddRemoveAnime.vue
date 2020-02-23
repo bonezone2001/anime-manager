@@ -133,8 +133,8 @@ export default {
           .then(htmlPage => {
             let animeImages = [];
             const html2 = parse(htmlPage);
-            if (html2 == null) {
-              alert("error processing anime page");
+            if (html2 === null) {
+              remote.dialog.showErrorBox("", "Error processing anime page");
               return;
             }
             // Image
@@ -147,17 +147,20 @@ export default {
                 animeImages.push(img);
             });
             if (animeImages.length == 0) {
-              alert("Cannot find image, unexpected error");
+              remote.dialog.showErrorBox("", "Cannot find image, unexpected error");
               return;
             }
             // Extras
             const score = html2.querySelector('[data-title="score"]');
+            console.log(score);
             const ranked = html2
               .querySelector(".numbers.ranked")
               .querySelector("strong");
+            console.log(ranked);
             const description = html2.querySelector(
               '[itemprop="description"]'
             );
+            console.log(description);
             this.addDataFile(
               anime,
               score.innerHTML.trim(),
@@ -193,7 +196,7 @@ export default {
     },
     addAnime() {
       if (this.anime == "") {
-        alert("Enter anime plz :3");
+        remote.dialog.showErrorBox("", "Enter anime plz");
         return;
       }
       const imgPath = path.join(
