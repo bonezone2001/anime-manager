@@ -1,6 +1,7 @@
 import Vue from "vue";
 import VueRouter from "vue-router";
 import Watch from "../views/Watch.vue";
+import Options from "../views/Options.vue";
 
 Vue.use(VueRouter);
 
@@ -25,8 +26,7 @@ const routes = [{
     path: "/options",
     name: "Options",
     icon: '\u2699',
-    component: () =>
-      import("../views/Options.vue")
+    component: Options
   }
 ];
 

@@ -1,35 +1,34 @@
 <template>
-  <div class="main" :class="{'collapsed' : this.$store.getters.isCollapsed}" id="home">
+  <div id="main" :class="!this.$store.getters.isCollapsed || 'collapsed'">
     <span hidden>{{animeUpdate}}</span>
     <div id="watchbuttons">
       <div @click="randomAnime($event)" @click.right="randomAnime($event)">⇋</div>
       <input v-model="search" placeholder="Search">
     </div>
     <transition-group appear name="fade">
-      <img
-        class="anime-img"
+      <div class="anime"
         :class="{'extend' : $store.getters.isCollapsed}"
-        v-for="(obj, idx) in anime"
-        :key="idx"
-        :index="idx"
-        :src="obj.path"
-        @click.right="handleAnime($event)"
+        v-for="(obj, i) in anime"
+        :style="{ 'background-image': `url('${getImage(obj.path)}')` }"
+        :key="i+1"
+        :idx="i"
         @click="handleAnime($event)"
-        @mouseover="handleAnimeHover($event)"
-      />
+        @click.right="handleAnime($event)"
+        @mouseenter="handleAnimeHover($event)"
+        @mouseleave="handleAnimeHover($event)"/>
     </transition-group>
   </div>
 </template>
 
 <script>
-import path from "path";                    // Import path so we can append directories together
-import { remote } from "electron";          // Import remote so we can 'remote'ly access mainwindow
-const fs = require("fs");                   // Import fs so we can use the file system
-const opn = require("opn");                 // Import opn so we can open links in the default browser across different os
-import copy from 'copy-to-clipboard';       // Import library to add overwrite clipbard
-import Fuse from "fuse.js";                 // Import fuse.js so we can 'fuzzy' search through arrays (approximate search)
-import { mkdirSync } from "fs";             // Import mkdirSync for making directories syncronously
-import sanitize from 'sanitize-filename';   // Used for sanatising strings so we can use them in path names
+import fs from 'fs';                      // Import fs so we can use the file system
+import opn from 'opn';                    // Import opn so we can open links in the default browser across different os
+import path from 'path';                  // Import path so we can append directories together
+import Fuse from "fuse.js";               // Import fuse.js so we can 'fuzzy' search through arrays (approximate search)
+import { remote } from 'electron';        // Import remote so we can 'remote'ly access mainwindow
+import copy from 'copy-to-clipboard';     // Import library to add overwrite clipbard
+import sanitize from 'sanitize-filename'; // Used for sanatising strings so we can use them in path names
+import starRating from 'vue-star-rating'; // Create star ratings for anime based on score 0/10
 
 // Options for fuse.js (fuzzy search)
 const options = {
@@ -48,141 +47,168 @@ export default {
     return {
       appPath: path.join(remote.app.getPath("userData"), "/Core/"),         // Main path
       imgPath: path.join(remote.app.getPath("userData"), "/Core/Images/"),  // Images path
-      anime: [], // All anime currently being displayed
+      anime: [],
       search: ""
     };
   },
+  components: {
+    starRating
+  },
   props: {
-    isWatched: Boolean // param passed so determine if the current watch component is watch or watched (determines the list to load)
+    isWatched: Boolean // Param to determine which list to load
+  },
+  computed: {
+    animeUpdate() {
+      this.$store.getters.hasAddedAnime;
+      if(this.$store.getters.hasAddedAnime == false)
+          return;
+      this.loadAnime();
+      this.$store.commit("changeAdded", false);
+    }
   },
   methods: {
-    // Function that loads the anime
-    loadAnime() {
-      this.$store.commit('changeHovered', {}); // Reset the current hovered obj
-      let rawdata = fs.readFileSync(this.appPath + (this.$props.isWatched ? "watched.json" : "watch.json")); // Read the file.. duhhhh
-      let watchList = JSON.parse(rawdata); // Parse the json so we get an array of objects
+    initialize() {
+      this.checkFiles();
+      this.loadAnime();
+    },
 
-      // Load the shared file (shared file is used to store descriptions, scores, rating, etc. Stuff that isn't specific to either watched or watch)
+    // Used to convert escape backslashes
+    getImage(aPath) {
+      return aPath.replace(/\\/g, "/");
+    },
+
+    // Load all anime in watch/watched json files
+    loadAnime() {
+      // Read watch/watched and parse JSON
+      let rawdata = fs.readFileSync(this.appPath + (this.$props.isWatched ? "watched.json" : "watch.json"));
+      let watchList = JSON.parse(rawdata);
+
+      // Load the shared file and parse JSON (shared file contains descriptions, scores, rating, etc. Anything that isn't specific to watch/watched)
       rawdata = fs.readFileSync(this.appPath + "shared.json");
       let animeData = JSON.parse(rawdata);
 
-      // Get all the file paths in images directory
+      // Gather all paths in image directory
       fs.readdir(this.imgPath, (err, items) => {
         this.anime = []; // Reset the current anime loaded
-        watchList.forEach((animeObj) => { // Itterate through the anime list we loaded
-          let curAnimeData = {}; // Store info about the current anime
-          // Loop through all the shared data and match the shared data to the anime
-          // We cannot break out of for loops so this is a little unoptimised but so is
-          // The rest of this program
-          animeData.forEach((data) => {
-            if(data.name == animeObj.name) {
-              curAnimeData = data;
-            }
+        
+        // Itterate through the anime list we loaded
+        watchList.forEach((curAnime) => {
+          let curAnimeData = {}; // Store current anime's info
+
+          // Itterate shared data, pair with anime
+          animeData.some((shared) => {
+            return !(shared.name != curAnime.name || (curAnimeData = shared) == undefined)
           });
+
           // Loop through all the paths and find the image associated with anime
           items.forEach((filePath) =>{
-            // get file name from path
+            // Get file name from path
             let filename = filePath.replace(/^.*[\\\/]/, "");
             let animeName = filename.substring(0, filename.length - 4);
+            
             // Compare path anime name with anime name sanatised
-            if(animeName == sanitize(animeObj.name))
+            if(animeName == sanitize(curAnime.name))
               this.anime.push({ path: this.imgPath + filePath, ...curAnimeData }); // Push anime with img path and merge curAnimeData obj with this one
           });
         })
         // Store all the anime currently loaded globally so we can use them in things (mainly AddRemoveAnime component)
-        this.$store.commit('changeLoaded', this.anime)
+        this.$loadedAnime = this.anime;
       });
     },
-    // Select random anime from current list (Right click, from twist.moe)
-    randomAnime(event) {
-      if(event.button == 0) { // From list (super lazy way)
-        let animeImgs = document.querySelectorAll(".anime-img");
-        var obj = animeImgs[Math.floor(Math.random() * animeImgs.length)];
-        obj.click();
-        //obj.scrollIntoView(true);
-      } else { // From twist.moe
-        let twistMoe = this.$store.getters.twistMoe;
-        opn(twistMoe[Math.floor(Math.random() * twistMoe.length)].link);
-      }
-    },
+
     // Handle the user clicking the anime (Right click, used to copy anime name instead of opening it)
     handleAnime(event) {
       // Get index relative to the this.anime array that we stored within the html as an attribute
-      const index = event.currentTarget.getAttribute("index");
-      if (index == undefined) return;
+      const idx = event.currentTarget.getAttribute("idx");
+      if (idx == undefined) return;
 
       // Get anime from index, get name from path
-      let animeObj = this.anime[parseInt(index)];
+      let animeObj = this.anime[parseInt(idx)];
       let fullPath = animeObj.path;
       let filename = fullPath.replace(/^.*[\\\/]/, "");
       let anime = filename.substring(0, filename.length - 4);
 
       // Open anime if left click, copy if right click (not left click)
       if (event.button == 0) {
-        // Search through the anime we gathered from twist.moe
-        var fuse = new Fuse(this.$store.getters.twistMoe, options);
-        var result = fuse.search(anime);
-        // Open anime
-        opn(result[0].link);
+        var search = this.$site.search(anime); // Search for anime
+        opn(search[0].link);                    // Open anime link retrieve
       } else copy(anime); // Overwrite clipboard
     },
-    // Handle anime hover (the way in which the extra data is displayed is going to be changed)
-    // So this is just temporary
-    handleAnimeHover(event) {
-      const index = event.currentTarget.getAttribute("index");
-      let animeObj = this.anime[parseInt(index)];
-      this.$store.commit('changeHovered', animeObj)
-    },
-    // Check if the files exist, if they don't, create them
-    checkFiles() {
-      if (!fs.existsSync(this.appPath)) mkdirSync(this.appPath);
-      if (!fs.existsSync(this.imgPath)) mkdirSync(this.imgPath);
 
-      const files = [
+    // TODO: anime hovering
+    handleAnimeHover(event) {
+      const el = event.currentTarget;
+      const index = el.getAttribute("idx");
+      const animeObj = this.anime[parseInt(index)];
+      
+      if(event.type == "mouseenter") {
+        // Create overlay
+        // synopsis: info.synopsis,
+        // genres: genreShort,
+        el.style = `color: white; text-align: center; background:linear-gradient( rgba(0, 0, 0, 0.8) 50%, rgba(0, 0, 0, 0.4)100%), url('${this.getImage(animeObj.path)}');`
+        el.innerHTML = `\
+        <p id="anime-title">${animeObj.name.charAt(0).toUpperCase() + animeObj.name.substring(1)}</p>\
+        <p id="anime-length">${animeObj.duration}</p>\
+        <p id="anime-episodes">${animeObj.episodes}</p>\
+        <p id="anime-airing">${animeObj.airing}</p>\
+        <p id="anime-score">${animeObj.score}</p>\
+        `;
+      } else {
+        // Remove overlay
+        el.style = `background-image: url('${this.getImage(animeObj.path)}'`
+        el.innerHTML = "";
+      }
+    },
+
+    // Select random anime from current list (Right click, from anime site)
+    randomAnime(event) {
+      if(event.button == 0) { // From list (super lazy way)
+        let animeImgs = document.querySelectorAll(".anime-img");
+        if(animeImgs.length == 0) return;
+        var obj = animeImgs[Math.floor(Math.random() * animeImgs.length)];
+        obj.click();
+      } else { // Any from anime site
+        let anime = this.$site.random();
+        opn(anime.link);
+      }
+    },
+
+    // Check folders/files and create missing
+    checkFiles() {
+      // Folders and files
+      const data = [
+        this.appPath, this.imgPath,
         this.appPath + "shared.json",
         this.appPath + "watched.json",
         this.appPath + "watch.json"
       ];
-      files.forEach(file => {
-        if (!fs.existsSync(file)) {
-          fs.writeFile(file, "[]", err => {
-            if (err) throw err;
-          });
+
+      data.forEach(file => {
+        if(!fs.existsSync(file)) {
+          if(file.split('.').pop() != "json")
+            fs.mkdirSync(file);
+          else
+            fs.writeFileSync(file, "[]");
         }
       });
     }
   },
-  computed: {
-    animeUpdate() {
-      if(this.$store.getters.newAnime == false)
-        return;
-      this.loadAnime();
-      const a = this.$store.getters.newAnime; // We have to use this here so Vue runs this function when .newAnime changes
-      this.$store.commit('changeAnime', false);
-      return "";
-    }
-  },
-  created() {
-    // Load files into array from path
-    this.checkFiles();
-    this.loadAnime();
-  },
-  destroyed() {
-      this.$store.commit('changeHovered', {});
+
+  mounted() {
+    this.initialize();
   },
   watch: {
-    $route(to, from) {
-      // Load files into array from path
-      this.checkFiles();
-      this.loadAnime();
+    // Replicate mounted()
+    $route() {
+      this.initialize();
     },
+
     search(to) {
       // Reset list when empty
       if(to.length < 1)
         this.loadAnime();
       // Attempt search
-      const refAnime = this.anime;
-      var fuse = new Fuse(refAnime, options);
+      var fuse = new Fuse(this.$loadedAnime, options);
       var result = fuse.search(to);
       this.anime = result;
     }
@@ -190,13 +216,14 @@ export default {
 };
 </script>
 
-<style scoped>
+<style>
 #watchbuttons {
   -webkit-app-region: no-drag;
+  color: var(--textCol);
   height: 32px;
   width: auto;
   position: absolute;   /* add option to set to fixed (in settings) */
-  background: #151515;
+  background: var(--themeBg);
   margin-top: -32px;
 }
 
@@ -209,26 +236,27 @@ export default {
   align-items: center;
 }
 
-/* Setup all the buttons hover/active colouring */
-#watchbuttons div:hover { background: rgba(255,255,255,0.1); }
-#watchbuttons div:active { background: rgba(255,255,255,0.2); }
-
 #watchbuttons input {
   background: transparent;
-  color: white;
+  color: var(--textCol);
   padding: 0 5px;
   width: 150px;
   height:32px;
 }
 
-#watchbuttons input:hover { background: rgba(255,255,255,0.1); }
+/* Setup all the buttons hover/active colouring */
+#watchbuttons div:hover { background: rgba(55,55,55,0.5); }
+#watchbuttons div:active { background: rgba(55,55,55,0.5); }
+#watchbuttons input:hover { background: rgba(55,55,55,0.5); }
 
-.anime-img {
+.anime {
   transition: 0.5s;
   float: left;
   width: 200px;
   height: 300px;
   margin: 0 2px 2px 0;
+  background-repeat: no-repeat !important;
+  background-size: cover !important;
 }
 
 .extend {
@@ -236,12 +264,19 @@ export default {
   height: 360px;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.5s;
+#anime-title {
+  color: red
 }
-.fade-enter,
-.fade-leave-to {
-  opacity: 0;
+
+#anime-length {
+}
+
+#anime-episodes {
+}
+
+#anime-airing {
+}
+
+#anime-score {
 }
 </style>
