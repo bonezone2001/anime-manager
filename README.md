@@ -1,4 +1,7 @@
 # Anime Management
+
+IMPORTANT: With me finding out that MALClient exists, the motivation for this project was almost all lost. Among me just generally watching less anime. So this project is just abandoned. I might pick it back up at some point, but it's not that useful for most people I imagine. 
+
 Version 2.0 currently a WIP (However, it will function pretty much as expected... hopefully)
 
 A tool to let me store the anime i have watched and plan to watch with the addition of a description, rating, score, personal comments and the ability to instantly get the anime watch page. The main idea behind this program was just to allow me to quickly and easily see what anime i plan to watch and be able to get to it quickly. This program is a remake of an old C# application I made and released on MAL (MyAnimeList) at the age of 16. That version of the application was created in C# using the WPF Microsoft GUI framework which is a pain to deal with. https://myanimelist.net/forum/?topicid=1622794
